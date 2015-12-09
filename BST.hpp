@@ -6,6 +6,7 @@
 #define ARCHLAB3_BINARYSEARCHTREE_HPP
 
 #include "TestAndTestAndSetLock.hpp"
+#include "HardwareLockElision.hpp"
 #include "helper.h"
 struct tree_node
 {
@@ -18,6 +19,7 @@ class BinarySearchTree
 {
 private:
     TestAndTestAndSetLock ttas_lock;
+    HardwareLockElision hle_lock;
     UINT64 elementCount;
 public:
     void insertWithTestAndTestAndSetLock(UINT64);

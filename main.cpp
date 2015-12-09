@@ -15,7 +15,7 @@ using namespace std;
  * 2 == HLE
  * 3 == RTM
  */
-#define TREE_TYPE 1
+#define TREE_TYPE 2
 
 /*
  * Global Variables

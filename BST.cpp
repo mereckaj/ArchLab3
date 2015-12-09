@@ -162,6 +162,7 @@ BinarySearchTree::BinarySearchTree() {
     root = NULL;
     elementCount = 0;
     ttas_lock.init();
+    hle_lock.init();
 }
 
 void BinarySearchTree::insertWithTestAndTestAndSetLock(UINT64 i) {
@@ -171,7 +172,9 @@ void BinarySearchTree::insertWithTestAndTestAndSetLock(UINT64 i) {
 }
 
 void BinarySearchTree::insertWithHLE(UINT64 i) {
-
+    hle_lock.acquire();
+    insert(i);
+    hle_lock.release();
 }
 
 void BinarySearchTree::insertWithRTM(UINT64 i) {

@@ -4,15 +4,15 @@
 
 #ifndef ARCHLAB3_HARDWARELOCKELISION_HPP
 #define ARCHLAB3_HARDWARELOCKELISION_HPP
-class HardwareLockElision{
-public:
-    void acquirePessimistic();
 
-    void acquireOptimistic();
+class HardwareLockElision {
+public:
+    void acquire();
 
     void release();
 
     void init();
+
 private:
     volatile bool lock;
 };
