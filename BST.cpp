@@ -197,7 +197,7 @@ void BinarySearchTree::removeWithTestAndTestAndSetLock(unsigned long long int i)
 }
 
 void BinarySearchTree::removeWithHLE(unsigned long long int i) {
-
+    hle_lock.release();
 }
 
 void BinarySearchTree::removeWithRTM(unsigned long long int i) {
