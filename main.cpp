@@ -55,7 +55,7 @@ WORKER worker(void *vthread) {
     tstart = getWallClockMS();
     while (1) {
         for (int i = 0; i < NOPS; i++) {
-            UINT64 value = (unsigned long long int) uniform_dist(e1);
+            UINT64 value = (UINT64) uniform_dist(e1);
             if (value & 1) {
 #if TREE_TYPE == 0
                 (*tree).insert(value);
@@ -68,13 +68,13 @@ WORKER worker(void *vthread) {
 #endif
             } else {
 #if TREE_TYPE == 0
-                (*tree).insert(value);
+                (*tree).remove(value);
 #elif TREE_TYPE == 1
-                (*tree).insertWithTestAndTestAndSetLock(value);
+                (*tree).removeWithTestAndTestAndSetLock(value);
 #elif TREE_TYPE == 2
-                (*tree).insertWithHLE(value);
+                (*tree).removeWithHLE(value);
 #elif TREE_TYPE == 3
-                (*tree).insertWithRTM(value);
+                (*tree).removeWithRTM(value);
 #endif
             }
             continue;
