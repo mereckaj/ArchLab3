@@ -21,7 +21,7 @@ using namespace std;
  * Global Variables
  */
 
-//Tupple: <Lower bound, Upper bound, the power of 2 that will generate the range defined by lower and upper bounds
+//Tuple: <Lower bound, Upper bound, the power of 2 that will generate the range defined by lower and upper bounds
 std::vector<std::tuple<int, int, int>> bounds = {std::tuple<int, int, int>(0, 15, 4),
                                                  std::tuple<int, int, int>(0, 255, 8),
                                                  std::tuple<int, int, int>(0, 4095, 12),

@@ -14,6 +14,7 @@ public:
     void init();
 
 private:
+    volatile int c =0;
     volatile bool lock;
 };
 
