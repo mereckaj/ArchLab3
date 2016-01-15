@@ -1,182 +1,123 @@
 #include <iostream>
 #include <random>
-#include <sstream>
-#include <assert.h>
+#include <queue>
+#include "helper.h"
 #include "BST.hpp"
-
-using namespace std;
 
 #define NOPS 10000
 #define NSECONDS 1
-/*
- * 0 == no locks
- * 1 == locks
- * 2 == HLE
- * 3 == RTM
- */
-#define TREE_TYPE 2
+#define PREALLOCATED_NODE_COUNT 10000
 
-/*
- * Global Variables
- */
+std::tuple<int, int> range_1(0, 15);
+std::tuple<int, int> range_2(0, 256);
+std::tuple<int, int> range_3(0, 4096);
+std::tuple<int, int> range_4(0, 65535);
+std::tuple<int, int> range_5(0, 1048576);
 
-//Tuple: <Lower bound, Upper bound, the power of 2 that will generate the range defined by lower and upper bounds
-int a[3] = {0, 15, 4};
-int b[3] = {0, 255, 8};
-int c[3] = {0, 4095, 12};
-int d[3] = {0, 65535, 16};
-int e[3] = {0, 1048757, 20};
-std::vector<int *> bounds = {a, b, c, d, e};
+std::vector<std::tuple<int, int>> ranges = {range_1, range_2 , range_3, range_4, range_5};
+static int current_range = 0;
 
-int currentBound;
-BinarySearchTree *tree;
-UINT64 *numberOfOpsPerThread;
+BST *bst;
 
-void prepareTree();
+BST *prefil_BST() {
+    BST *new_bst = new BST();
+    int range_min = std::get<0>(ranges[current_range]);
+    int range_max = std::get<1>(ranges[current_range]);
+    std::mt19937 rng;
+    rng.seed(std::random_device()());
+    std::uniform_int_distribution<std::mt19937::result_type> dist((unsigned long) range_min, (unsigned long) range_max);
 
-unsigned long long int generateRanom(mt19937 *generator, int uBound, int lBound) {
-
-    return 0;
+    int number_of_nodes_to_add = (range_max - range_min) / 2; // Integer division
+    std::cout << "Adding " << std::to_string(number_of_nodes_to_add) << " to tree" << std::endl;
+    for (int i = 0; i < number_of_nodes_to_add; i++) {
+        int key = (int) dist(rng);
+        Node *new_node = new Node(key);
+        new_bst->add(new_node);
+    }
+    std::cout << "Added " << std::to_string(number_of_nodes_to_add) << " to tree" << std::endl;
+    return new_bst;
 }
 
 WORKER worker(void *vthread) {
-    int tid = (int) ((size_t) vthread);
-    /*
-     * Create a thread local random number generator
-     */
-    std::random_device rd;
-    std::default_random_engine e1(rd());
-    std::uniform_int_distribution<int> uniform_dist(bounds[currentBound][0],
-                                                    bounds[currentBound][1]);
+    int thread_id = (int) ((size_t) vthread);
+    int range_min = std::get<0>(ranges[current_range]);
+    int range_max = std::get<1>(ranges[current_range]);
+    int nops_done = 0;
+    std::mt19937 rng;
+    rng.seed(std::random_device()());
+    std::uniform_int_distribution<std::mt19937::result_type> dist((unsigned long) range_min, (unsigned long) range_max);
 
-    UINT64 tstart;
-    UINT64 ops = 0;
-    tstart = getWallClockMS();
-    while (1) {
+    UINT64 tstart = getWallClockMS();
+    //Create a queue of pre-allocated nodes;
+    std::queue<Node *> node_queue;
+
+    std::cout << "Populating pre allocated node queue" << std::endl;
+
+    for (int i = 0; i < PREALLOCATED_NODE_COUNT; i++) {
+        node_queue.push(new Node(0));
+    }
+
+    std::cout << "Pre allocated node queue size: " << node_queue.size() << std::endl;
+
+    while (true) {
         for (int i = 0; i < NOPS; i++) {
-            UINT64 value = (UINT64) uniform_dist(e1);
-#if TREE_TYPE == 0
-            (*tree).insert(value);
-#elif TREE_TYPE == 1
-            cout <<
-            (*tree).insertWithTestAndTestAndSetLock(value);
-#elif TREE_TYPE == 2
-            (*tree).insertWithHLE(value);
-#elif TREE_TYPE == 3
-            (*tree).insertWithRTM(value);
-#endif
-            value = (UINT64) uniform_dist(e1);
-#if TREE_TYPE == 0
-            (*tree).remove(value);
-#elif TREE_TYPE == 1
-            (*tree).removeWithTestAndTestAndSetLock(value);
-#elif TREE_TYPE == 2
-            (*tree).removeWithHLE(value);
-#elif TREE_TYPE == 3
-            (*tree).removeWithRTM(value);
-#endif
+
+            int add_or_rem = (int) dist(rng);
+            if (add_or_rem % 2 == 0) {
+                int key = (int) dist(rng);
+                Node *new_node;
+                //Check if there are nodes in the free node queue
+                if (!node_queue.empty()) {
+                    //There are nodes so take an old one
+                    new_node = node_queue.front();
+                    node_queue.pop();
+                    new_node->key = key;
+                } else {
+                    // THere are no nodes so create a new one
+                    new_node = new Node(key);
+                }
+                //Add this node to the tree
+                bst->add(new_node);
+
+            } else {
+                int key = (int) dist(rng);
+                Node *old_node = bst->remove(key);
+                // Add node back to free node queue
+                if (old_node != NULL) {
+                    old_node->key = 0;
+                    old_node->left = NULL;
+                    old_node->right = NULL;
+
+                    node_queue.push(old_node);
+//                    std::cout << std::to_string(node_queue.size()) << " nodes remaining" << std::endl;
+                }
+            }
+            nops_done += NOPS;
+            if ((getWallClockMS() - tstart) > NSECONDS * 1000) {
+                break;
+            }
         }
-        ops += NOPS;
-        if ((getWallClockMS() - tstart) > (NSECONDS * 1000)) {
-            break;
-        }
-    }
-    numberOfOpsPerThread[tid] = ops;
-    return nullptr;
-}
 
-/*
- * Function to print numbers with commans in them
- * Source: https://stackoverflow.com/questions/7276826/c-format-number-with-commas
- */
-template<class T>
-std::string FormatWithCommas(T value) {
-    std::stringstream ss;
-    ss.imbue(std::locale(""));
-    ss << std::fixed << value;
-    return ss.str();
-}
 
-void prepareTree(int iter) {
-    /*
-     * Create a new tree and check that its size is 0
-     */
-    tree = new BinarySearchTree();
-    assert((*tree).isEmpty());
-
-    /*
-     * Add (2^iter)/2 nodes to the tree before we start
-     * In order to make sure there is something to remove
-     */
-    iter = std::pow(2, iter) / 2;
-    for (int i = 0; i < iter; i++) {
-        std::random_device rd;
-        std::default_random_engine e1(rd());
-        std::uniform_int_distribution<int> uniform_dist(bounds[currentBound][0],
-                                                        bounds[currentBound][1]);
-        UINT64 val = (unsigned long long int) uniform_dist(e1);
-        tree->insert(val);
+        return EXIT_SUCCESS;
     }
 }
 
-
-/*
- * Main
- */
 int main(int argc, char **argv) {
-    using namespace std;
-    cout << "Thread cound/Tree size at start/Tree size at end/Total operations" << endl;
-    /*
-     * Max threads is always the two times the number of CPU's
-     */
-    int maxThreads = getNumberOfCPUs() * 2;
-    int totalOps;
-    THREADH *threads;
-    currentBound = 0;
+    int NCPU = getNumberOfCPUs() * 2;
 
-    for (unsigned int boundSize = 0; boundSize < bounds.size(); boundSize++) {
-        /*
-         * Print the bounds of the values generated by the random number generator
-         */
-        cout << "Lower bound: " << bounds[currentBound][0] << " Upper Bound: " <<
-        bounds[currentBound][1] << endl;
+    for (size_t range = 0; range < ranges.size(); range++) {
+        current_range = (int) range;
+        for (int thread_count = 0; thread_count <= NCPU; thread_count++) {
+            THREADH threads[thread_count];
 
-        for (int threadCount = 1; threadCount <= maxThreads; threadCount++) {
+            //Create a new tree
+            bst = prefil_BST();
 
-            /*
-             * Create new variables for each iteration
-             */
-            prepareTree(bounds[currentBound][2]);
-            UINT64 treeSizeAtStart = tree->getSize();
-            totalOps = 0;
-            numberOfOpsPerThread = new UINT64[threadCount];
-            threads = new THREADH[threadCount];
-
-            /*
-             * Check to makesure tree is empty before beginning
-             */
-            for (int threadNumber = 0; threadNumber < threadCount; threadNumber++) {
-                createThread(&threads[threadNumber], worker, (void *) threadNumber);
+            for (int thread = 0; thread < thread_count; thread++) {
+                createThread(&threads[thread], worker, (void *) thread);
             }
-
-            /*
-             * Wait for all threads to finish (Barrier)
-             */
-            waitForThreadsToFinish(threadCount, threads);
-
-            /*
-             * Sum the number of ops per thread
-             */
-            for (int j = 0; j < threadCount; j++) {
-                totalOps += numberOfOpsPerThread[j];
-
-            }
-            /*
-             * Print data
-             */
-            cout << threadCount << "/" << FormatWithCommas(treeSizeAtStart) << "/" <<
-            FormatWithCommas((*tree).getSize()) << "/" << FormatWithCommas(totalOps) << endl;
+            waitForThreadsToFinish((unsigned int) thread_count, threads);
         }
-        currentBound++;
     }
 }
