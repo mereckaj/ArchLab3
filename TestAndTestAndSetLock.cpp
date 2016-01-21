@@ -32,3 +32,15 @@ void TestAndTestAndSetLock::init() {
 volatile bool TestAndTestAndSetLock::getValue() {
     return lock;
 }
+
+void TestAndTestAndSetLock::acquireHLE() {
+    do{
+        while(lock){
+            _mm_pause();
+        }
+    }while(_InterlockedExchange_HLEAcquire(&lock,true));
+}
+
+void TestAndTestAndSetLock::releaseHLE() {
+    _Store_HLERelease(&lock,false);
+}

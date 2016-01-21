@@ -6,7 +6,7 @@
 
 #define LOCK 0
 #define TRANSACTION 1
-#define MAXATTEMPT 16
+#define MAXATTEMPT 8
 
 Node::Node(int k) {
     key = k;
@@ -91,16 +91,9 @@ Node *BST::remove(INT64 key) {
 
 int BST::addHLE(Node *node) {
     int res;
-    while (1) {
-        int status = _xbegin();
-        if (status == _XBEGIN_STARTED) {
-            res = add(node);
-            _xend();
-            break;
-        } else {
-            res = addTATAS(node);
-        }
-    }
+    tatas_lock.acquireHLE();
+    res = add(node);
+    tatas_lock.releaseHLE();
     return res;
 }
 
@@ -108,7 +101,7 @@ int BST::addRTM(Node *node) {
     int state = TRANSACTION;
     int attempt = 1;
     int nabort = 0;
-    volatile UINT64 wait = 0;
+    int res;
 
     while (1) {
         UINT status = _XBEGIN_STARTED;
@@ -120,12 +113,12 @@ int BST::addRTM(Node *node) {
         }
 
         if (status == _XBEGIN_STARTED) {
-            if (status == TRANSACTION && tatas_lock.getValue()) {
+            if (state == TRANSACTION && tatas_lock.getValue()) {
                 _xabort(0xA0);
                 nabort++;
             }
 
-            add(node);
+            res = add(node);
 
             if (state == TRANSACTION) {
                 _xend();
@@ -150,23 +143,61 @@ int BST::addRTM(Node *node) {
             }
         }
     }
+    return res;
 }
 
 Node *BST::removeHLE(int key) {
     Node *res;
-    while (1) {
-        int status = _xbegin();
-        if (status == _XBEGIN_STARTED) {
-            res = remove(key);
-            _xend();
-            break;
-        } else {
-            res = removeTATAS(key);
-        }
-    }
+    tatas_lock.acquireHLE();
+    res = remove(key);
+    tatas_lock.releaseHLE();
     return res;
 }
 
 Node *BST::removeRTM(int key) {
-    return nullptr;
+    int state = TRANSACTION;
+    int attempt = 1;
+    int nabort = 0;
+    Node *res;
+    while (1) {
+        UINT status = _XBEGIN_STARTED;
+        if (state == TRANSACTION) {
+            status = _xbegin();
+        }
+        else {
+            tatas_lock.acquireOptimistic();
+        }
+
+        if (status == _XBEGIN_STARTED) {
+            if (state == TRANSACTION && tatas_lock.getValue()) {
+                _xabort(0xA0);
+                nabort++;
+            }
+
+            res = remove(key);
+
+            if (state == TRANSACTION) {
+                _xend();
+            }
+            else {
+                tatas_lock.release();
+            }
+            break;
+        }
+        else {
+            if (tatas_lock.getValue()) {
+                do {
+                    _mm_pause();
+                } while (tatas_lock.getValue());
+            }
+            else {
+                volatile UINT64 wait = attempt;
+                while (wait--);
+            }
+            if (++attempt >= MAXATTEMPT) {
+                state = LOCK;
+            }
+        }
+    }
+    return res;
 }

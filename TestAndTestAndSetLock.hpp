@@ -13,6 +13,10 @@ public:
 
     void acquireOptimistic();
 
+    void acquireHLE();
+
+    void releaseHLE();
+
     void release();
 
     void init();

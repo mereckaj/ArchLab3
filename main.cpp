@@ -14,7 +14,7 @@
  * 1 = HLE
  * 2 = RTM
  */
-#define LOCK_TYPE 2
+#define LOCK_TYPE 0
 
 
 std::tuple<int, int> range_1(0, 15);
@@ -159,6 +159,8 @@ WORKER worker(void *vthread) {
     result.failedAdds = failedAdds;
     result.failedRemoves = failedRems;
     resultArray[thread_id] = result;
+
+    return nullptr;
 }
 
 void parseResults(Result *pResult, int size, int nt, int rng) {
@@ -212,8 +214,8 @@ int main(int argc, char **argv) {
     int NCPU = getNumberOfCPUs() * 2;
 
     for (size_t range = 0; range < ranges.size(); range++) {
-        currentRange = (int) range;
         for (int threadCount = 1; threadCount <= NCPU; threadCount++) {
+            currentRange = (int) range;
             THREADH threads[threadCount];
 
             //Create a new tree
