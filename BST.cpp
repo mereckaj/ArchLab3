@@ -11,6 +11,21 @@ Node::Node(int k) {
 }
 
 BST::BST() {
+    tatas_lock.init();
+}
+
+Node* BST::removeNodeLocked(int key){
+    tatas_lock.acquirePessimistic();
+    Node* res = remove(key);
+    tatas_lock.release();
+    return res;
+}
+
+int BST::addNodeLocked(Node* node){
+    tatas_lock.acquirePessimistic();
+    int res = add(node);
+    tatas_lock.release();
+    return res;
 }
 
 int BST::add(Node *new_node) {
