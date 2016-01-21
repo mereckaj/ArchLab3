@@ -28,3 +28,7 @@ void TestAndTestAndSetLock::init() {
     cnt = 0;
     lock = false;
 }
+
+volatile bool TestAndTestAndSetLock::getValue() {
+    return lock;
+}

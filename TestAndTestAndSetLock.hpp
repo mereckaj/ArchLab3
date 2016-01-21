@@ -16,6 +16,9 @@ public:
     void release();
 
     void init();
+
+    volatile bool getValue();
+
 private:
     volatile UINT64 cnt;
     volatile bool lock;

@@ -9,6 +9,13 @@
 #define NOPS 1000
 #define NSECONDS 1
 #define PREALLOCATED_NODE_COUNT 100000
+/*
+ * 0 = TATAS
+ * 1 = HLE
+ * 2 = RTM
+ */
+#define LOCK_TYPE 2
+
 
 std::tuple<int, int> range_1(0, 15);
 std::tuple<int, int> range_2(0, 256);
@@ -101,14 +108,28 @@ WORKER worker(void *vthread) {
                     newNode = new Node(key);
                 }
                 //Add this node to the tree
-                if (bst->addNodeLocked(newNode) == 0) {
+#if LOCK_TYPE == 0
+                int res = (*bst).addTATAS(newNode);
+#elif LOCK_TYPE == 1
+                int res = (*bst).addHLE(newNode);
+#elif LOCK_TYPE == 2
+                int res = (*bst).addRTM(newNode);
+#endif
+                if (res == 0) {
                     failedAdds++;
                 }
 
             } else {
                 removes++;
                 int key = (int) dist(rng);
-                Node *oldNode = bst->removeNodeLocked(key);
+
+#if LOCK_TYPE == 0
+                Node *oldNode = (*bst).removeTATAS(key);
+#elif LOCK_TYPE == 1
+                Node *oldNode = (*bst).removeHLE(key);
+#elif LOCK_TYPE == 2
+                Node *oldNode = (*bst).removeRTM(key);
+#endif
 
                 // Add node back to free node queue
                 if (oldNode != NULL) {
@@ -142,26 +163,52 @@ WORKER worker(void *vthread) {
 
 void parseResults(Result *pResult, int size, int nt, int rng) {
     using namespace std;
+
+    Result average;
+    average.threadID = (UINT64) nt;
+
     for (int i = 0; i < size; i++) {
-        cout << "NT:\t" << to_string(nt) << "\t";
-        cout << "TID:\t" << to_string(pResult[i].threadID) << "\t";
-        cout << "NOPS:\t" << to_string(pResult[i].nops) << "\t";
-        cout << "RUN TIME:\t" << to_string((((double) pResult[i].runTime) / 1000)) << "\t";
-        cout << "NCREATED:\t" << to_string(pResult[i].nodesCreated) << "\t";
-        cout << "NLEFT:\t" << to_string(pResult[i].nodesLeftInQueue) << "\t";
-        cout << "READDED:\t" << to_string(pResult[i].nodesReaddedToQueue) << "\t";
-        cout << "MALLOCS:\t" << to_string(pResult[i].mallocedNodes) << "\t";
-        cout << "ADD:\t" << to_string(pResult[i].adds) << "\t";
-        cout << "FADD:\t" << to_string(pResult[i].failedAdds) << "\t";
-        cout << "REM:\t" << to_string(pResult[i].removes) << "\t";
-        cout << "FREM:\t" << to_string(pResult[i].failedRemoves) << "\t";
-        cout << "RANGE:\t (" << to_string(std::get<0>(ranges[rng])) << "," << to_string(std::get<1>(ranges[rng])) <<
-        ")" << endl;
+        average.nops += pResult[i].nops;
+        average.nodesCreated += pResult[i].nodesCreated;
+        average.nodesLeftInQueue += pResult[i].nodesLeftInQueue;
+        average.nodesReaddedToQueue += pResult[i].nodesReaddedToQueue;
+        average.mallocedNodes += pResult[i].mallocedNodes;
+        average.adds += pResult[i].adds;
+        average.removes += pResult[i].removes;
+        average.failedAdds += pResult[i].failedAdds;
+        average.failedRemoves += pResult[i].failedRemoves;
     }
-    cout << endl;
+
+    average.nops = average.nops / size;
+    average.nodesCreated = average.nodesCreated / size;
+    average.nodesLeftInQueue = average.nodesLeftInQueue / size;
+    average.nodesReaddedToQueue = average.nodesReaddedToQueue / size;
+    average.mallocedNodes = average.mallocedNodes / size;
+    average.adds = average.adds / size;
+    average.removes = average.removes / size;
+    average.failedAdds = average.failedAdds / size;
+    average.failedRemoves = average.failedRemoves / size;
+
+    cout << to_string(nt) << "\t";
+    cout << to_string(average.nops) << "\t";
+    cout << to_string(average.nodesCreated) << "\t";
+    cout << to_string(average.nodesLeftInQueue) << "\t";
+    cout << to_string(average.nodesReaddedToQueue) << "\t";
+    cout << to_string(average.mallocedNodes) << "\t";
+    cout << to_string(average.adds) << "\t";
+    cout << to_string(average.failedAdds) << "\t";
+    cout << to_string(average.removes) << "\t";
+    cout << to_string(average.failedRemoves) << "\t";
+    cout << "(" << to_string(std::get<0>(ranges[rng])) << "," << to_string(std::get<1>(ranges[rng])) <<
+    ")" << endl;
 }
 
 int main(int argc, char **argv) {
+
+
+    std::cout << "NT:\t" << "NOPS:\t" << "NCREATED:\t" << "NLEFT:\t" << "READDED:\t" << "MALLOCS:\t" << "ADD:\t" <<
+    "FADD:\t" << "REM:\t" << "FREM:\t" << "RANGE:\t" << std::endl;
+
     int NCPU = getNumberOfCPUs() * 2;
 
     for (size_t range = 0; range < ranges.size(); range++) {

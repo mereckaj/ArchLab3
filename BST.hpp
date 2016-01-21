@@ -26,9 +26,18 @@ public:
 
     Node *remove(INT64 key);
 
-    int addNodeLocked(Node *node);
+    int addTATAS(Node *node);
 
-    Node* removeNodeLocked(int key);
+    int addHLE(Node *node);
+
+    int addRTM(Node *node);
+
+    Node *removeTATAS(int key);
+
+    Node *removeHLE(int key);
+
+    Node *removeRTM(int key);
+
 private:
     Node *volatile root;
 
