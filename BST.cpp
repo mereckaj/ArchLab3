@@ -12,6 +12,7 @@ Node::Node(int k) {
 
 BST::BST() {
     tatas_lock.init();
+    root = NULL;
 }
 
 Node* BST::removeNodeLocked(int key){

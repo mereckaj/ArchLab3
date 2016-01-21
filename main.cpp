@@ -1,6 +1,7 @@
 #include <iostream>
 #include <random>
 #include <queue>
+#include <tuple>
 #include "helper.h"
 #include "BST.hpp"
 #include "Misc.hpp"
@@ -30,6 +31,7 @@ BST *preffilTree() {
     BST *new_bst = new BST();
     int range_min = std::get<0>(ranges[currentRange]);
     int range_max = std::get<1>(ranges[currentRange]);
+
     std::mt19937 rng;
     rng.seed(std::random_device()());
     std::uniform_int_distribution<std::mt19937::result_type> dist((unsigned long) range_min, (unsigned long) range_max);
@@ -38,9 +40,11 @@ BST *preffilTree() {
 
     for (int i = 0; i < numberOfNodesToAdd; i++) {
         int key = (int) dist(rng);
+
         Node *newNode = new Node(key);
         new_bst->add(newNode);
     }
+
     return new_bst;
 }
 
@@ -97,7 +101,7 @@ WORKER worker(void *vthread) {
                     newNode = new Node(key);
                 }
                 //Add this node to the tree
-                if(bst->addNodeLocked(newNode)==0){
+                if (bst->addNodeLocked(newNode) == 0) {
                     failedAdds++;
                 }
 
@@ -113,7 +117,7 @@ WORKER worker(void *vthread) {
                     oldNode->right = NULL;
                     nodeQueue.push(oldNode);
                     readded++;
-                }else{
+                } else {
                     failedRems++;
                 }
             }
@@ -159,7 +163,6 @@ void parseResults(Result *pResult, int size, int nt, int rng) {
 
 int main(int argc, char **argv) {
     int NCPU = getNumberOfCPUs() * 2;
-//    int NCPU = 2;
 
     for (size_t range = 0; range < ranges.size(); range++) {
         currentRange = (int) range;

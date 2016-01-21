@@ -26,4 +26,5 @@ void TestAndTestAndSetLock::release() {
 
 void TestAndTestAndSetLock::init() {
     cnt = 0;
+    lock = false;
 }
